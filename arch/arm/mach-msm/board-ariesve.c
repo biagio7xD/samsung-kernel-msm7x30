@@ -77,7 +77,6 @@
 #include <linux/platform_data/qcom_crypto_device.h>
 
 #include "devices.h"
-#include "devices-msm7x30.h"
 #include "timer.h"
 #ifdef CONFIG_USB_G_ANDROID
 #include <linux/usb/android.h>
@@ -138,13 +137,22 @@
 #define WLAN_RESET		127 //Reset
 #define WLAN_HOST_WAKE		111
 
-
 struct class *sec_class;
 EXPORT_SYMBOL(sec_class);
 struct device *switch_dev;
 EXPORT_SYMBOL(switch_dev);
 
-#define MSM_PMEM_SF_SIZE	0x1A00000
+#ifdef CONFIG_MSM_MORE_MEMORY // 397 MB of free RAM
+#define MSM_PMEM_SF_SIZE          0x500000 // by biagio7xD
+#define MSM_PMEM_ADSP_SIZE        0x1205000 
+#else                         // 375 MB of free RAM
+#define MSM_PMEM_SF_SIZE          0x014DA1A // by biagio7xD
+#define MSM_PMEM_ADSP_SIZE        0X2800000 
+#endif
+
+#define MSM_FLUID_PMEM_ADSP_SIZE  0x2800000 // 41.943.040 Bytes =  40 MB
+#define PMEM_KERNEL_EBI0_SIZE     0x600000  //  6.291.456 Bytes =   6 MB
+#define MSM_PMEM_AUDIO_SIZE       0x200000  //  2.097.152 Bytes =   2 MB
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MSM_FB_PRIM_BUF_SIZE	(800 * 480 * 4 * 3) /* 4bpp * 3 Pages */
 #else
@@ -152,11 +160,6 @@ EXPORT_SYMBOL(switch_dev);
 #endif
 
 #define MSM_FB_SIZE roundup(MSM_FB_PRIM_BUF_SIZE, 4096)
-
-#define MSM_PMEM_ADSP_SIZE		0x2800000
-#define MSM_FLUID_PMEM_ADSP_SIZE	0x2800000
-#define PMEM_KERNEL_EBI0_SIZE		0x600000
-#define MSM_PMEM_AUDIO_SIZE		0x200000
 
 #ifdef CONFIG_ION_MSM
 static struct platform_device ion_dev;
@@ -166,7 +169,7 @@ static struct platform_device ion_dev;
 #endif
 
 #define PMIC_GPIO_INT		27
-#define PMIC_VREG_WLAN_LEVEL	2900
+#define PMIC_VREG_WLAN_LEVEL	2100
 #define PMIC_GPIO_SD_DET	36
 #define PMIC_GPIO_SDC4_EN_N	17  /* PMIC GPIO Number 18 */
 #define PMIC_GPIO_HDMI_5V_EN_V3 32  /* PMIC GPIO for V3 H/W */
@@ -5389,7 +5392,6 @@ static struct platform_device *devices[] __initdata = {
 #ifdef CONFIG_SAMSUNG_JACK
 	&sec_device_jack,
 #endif
-    &ram_console_device,
 };
 
 static struct msm_gpio msm_i2c_gpios_hw[] = {
@@ -7301,16 +7303,6 @@ static void __init msm7x30_allocate_memory_regions(void)
 	msm_fb_resources[0].end = msm_fb_resources[0].start + size - 1;
 	pr_info("allocating %lu bytes at %p (%lx physical) for fb\n",
 		size, addr, __pa(addr));
-
-    /* RAM Console can't use alloc_bootmem(), since that zeroes the
-     * region */
-    size = MSM_RAM_CONSOLE_SIZE;
-    ram_console_resources[0].start = msm_fb_resources[0].end+1;
-    ram_console_resources[0].end = ram_console_resources[0].start + size - 1;
-    pr_info("allocating %lu bytes at (%lx physical) for ram console\n",
-            size, (unsigned long)ram_console_resources[0].start);
-    /* We still have to reserve it, though */
-    reserve_bootmem(ram_console_resources[0].start,size,0);
 }
 
 static void __init msm7x30_map_io(void)
